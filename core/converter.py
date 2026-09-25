@@ -36,8 +36,14 @@ def _convert_windows(docx_path, pdf_path):
 
 
 def _convert_linux(docx_path, output_dir):
-    subprocess.run(
-        ["libreoffice", "--headless", "--convert-to", "pdf",
-         "--outdir", output_dir, docx_path],
-        capture_output=True, timeout=120
-    )
+    # Try 'soffice' first (LibreOffice binary name), then 'libreoffice'
+    for binary in ["soffice", "libreoffice"]:
+        result = subprocess.run(
+            [binary, "--headless", "--convert-to", "pdf",
+             "--outdir", output_dir, docx_path],
+            capture_output=True, timeout=120
+        )
+        if result.returncode == 0:
+            return
+    # If neither works, raise the last error
+    raise RuntimeError(f"PDF conversion failed: {result.stderr.decode()}")
