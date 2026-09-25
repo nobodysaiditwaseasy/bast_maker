@@ -21,7 +21,7 @@ streamlit run app.py
 
 ```csv
 nama_ppl,nik_ppl,alamat_ppl,vol_kegiatan
-Ahmad Fauzi,3501012345670001,Desa Arjowinangun Pacitan,4
+Ahmad Fauzi,3XXX01234567XXX1,Desa Arjowinangun,4
 ```
 
 ## Template
