@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+saved_settings.json
+_test*.py
+_debug.py
+BAST_*.docx
+BAST_*.pdf
+BAST_*.zip
+bast_petugas_*.csv
+bast_maker.md
+readme.txt
+test-generate_bast_dari_csv.py
+BAST MASTERold.docx
+test_upper.docx
