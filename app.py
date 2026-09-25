@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import datetime
 import pandas as pd
@@ -12,6 +13,14 @@ from core.export_pdf import export_merged_pdf
 
 SETTINGS_FILE = "saved_settings.json"
 DEFAULT_TEMPLATE = "template/BAST MASTER.docx"
+
+
+def slugify(text, max_len=40):
+    """Sanitize a string into a safe filename slug."""
+    text = text.strip().upper()
+    text = re.sub(r'[^A-Z0-9]+', '_', text)
+    text = re.sub(r'_+', '_', text).strip('_')
+    return text[:max_len]
 
 st.set_page_config(page_title="BAST Generator BPS", layout="wide")
 st.title("Generator BAST Dinamis")
@@ -172,9 +181,13 @@ if st.button("Generate Dokumen", type="primary", use_container_width=True):
         merged_pdf_buf = export_merged_pdf(docs)
 
         progress.progress(100, text="Selesai!")
+        slug = slugify(nama_kegiatan)
+        fmt_label = "Kolektif" if format_mode == "collective" else "Individual"
         st.session_state["result"] = {
             "count": len(docs),
             "format": format_mode,
+            "slug": slug,
+            "fmt_label": fmt_label,
             "zip": zip_buf,
             "merged_docx": merged_docx_buf,
             "merged_pdf": merged_pdf_buf,
@@ -183,6 +196,8 @@ if st.button("Generate Dokumen", type="primary", use_container_width=True):
 if "result" in st.session_state:
     r = st.session_state["result"]
     is_collective = r["format"] == "collective"
+    slug = r["slug"]
+    fmt = r["fmt_label"]
     st.success(f"Berhasil menghasilkan {r['count']} dokumen BAST.")
 
     c1, c2, c3 = st.columns(3)
@@ -191,7 +206,7 @@ if "result" in st.session_state:
         st.download_button(
             label="ZIP Word Satuan" if not is_collective else "ZIP Word Kolektif",
             data=r["zip"],
-            file_name="BAST_Generated_Batch.zip",
+            file_name=f"BAST_{slug}_{fmt}.zip",
             mime="application/zip",
             use_container_width=True,
         )
@@ -199,7 +214,7 @@ if "result" in st.session_state:
         st.download_button(
             label="Word Gabungan",
             data=r["merged_docx"],
-            file_name="BAST_Gabungan.docx",
+            file_name=f"BAST_{slug}_{fmt}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
         )
@@ -207,7 +222,7 @@ if "result" in st.session_state:
         st.download_button(
             label="PDF Gabungan",
             data=r["merged_pdf"],
-            file_name="BAST_Gabungan.pdf",
+            file_name=f"BAST_{slug}_{fmt}.pdf",
             mime="application/pdf",
             use_container_width=True,
         )
