@@ -44,28 +44,72 @@ else:
 
 # --- Sidebar ---
 st.sidebar.header("Pengaturan Statis (Non-CSV)")
+
+# --- Preset Import/Export ---
+with st.sidebar.expander("📁 Preset Profil (JSON)", expanded=False):
+    preset_upload = st.file_uploader("Unggah Preset", type=["json"], label_visibility="collapsed")
+
+    if preset_upload is not None:
+        try:
+            loaded = json.load(preset_upload)
+            st.session_state["loaded_preset"] = loaded
+            st.success(f"Preset \"{loaded.get('nama_kegiatan', '?')}\" dimuat.")
+        except json.JSONDecodeError:
+            st.error("Berkas JSON tidak valid.")
+
+    # Build current settings for download
+    preset_export = {
+        "nama_kegiatan": saved_settings.get("nama_kegiatan", ""),
+        "alamat_bps": saved_settings.get("alamat_bps", ""),
+        "nama_ppk": saved_settings.get("nama_ppk", ""),
+        "nip_ppk": saved_settings.get("nip_ppk", ""),
+        "jabatan_ppk": saved_settings.get("jabatan_ppk", ""),
+        "nomor_bast": saved_settings.get("nomor_bast", ""),
+        "nomor_surattugas": saved_settings.get("nomor_surattugas", ""),
+        "tipe_satuan": saved_settings.get("tipe_satuan", ""),
+        "satuan_vol": saved_settings.get("satuan_vol", ""),
+        "tgl_bast": saved_settings.get("tgl_bast", str(datetime.date.today())),
+        "tgl_st": saved_settings.get("tgl_st", str(datetime.date.today())),
+    }
+    slug = slugify(preset_export.get("nama_kegiatan", "Preset"))
+    st.download_button(
+        label="📥 Unduh Preset Profil",
+        data=json.dumps(preset_export, indent=2, ensure_ascii=False),
+        file_name=f"preset_{slug}.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+# Merge loaded preset into defaults for the form
+defaults = dict(saved_settings)
+if "loaded_preset" in st.session_state:
+    defaults.update(st.session_state["loaded_preset"])
+    # Consume the preset so it doesn't persist across unrelated reruns
+    del st.session_state["loaded_preset"]
+
+# --- Settings Form ---
 with st.sidebar.form("settings_form"):
-    nama_kegiatan = st.text_input("Nama Kegiatan", saved_settings.get("nama_kegiatan", ""))
-    alamat_bps = st.text_input("Alamat Kantor BPS", saved_settings.get("alamat_bps", ""))
+    nama_kegiatan = st.text_input("Nama Kegiatan", defaults.get("nama_kegiatan", ""))
+    alamat_bps = st.text_input("Alamat Kantor BPS", defaults.get("alamat_bps", ""))
 
     st.markdown("**Identitas PPK (Pihak Kedua)**")
-    nama_ppk = st.text_input("Nama PPK", saved_settings.get("nama_ppk", ""))
-    nip_ppk = st.text_input("NIP PPK", saved_settings.get("nip_ppk", ""))
-    jabatan_ppk = st.text_input("Jabatan PPK", saved_settings.get("jabatan_ppk", ""))
+    nama_ppk = st.text_input("Nama PPK", defaults.get("nama_ppk", ""))
+    nip_ppk = st.text_input("NIP PPK", defaults.get("nip_ppk", ""))
+    jabatan_ppk = st.text_input("Jabatan PPK", defaults.get("jabatan_ppk", ""))
 
     st.markdown("**Naskah BAST**")
-    nomor_bast = st.text_input("Nomor BAST", saved_settings.get("nomor_bast", ""))
+    nomor_bast = st.text_input("Nomor BAST", defaults.get("nomor_bast", ""))
     tgl_bast = st.date_input("Tanggal Pelaksanaan BAST",
-        datetime.date.fromisoformat(saved_settings.get("tgl_bast", str(datetime.date.today()))))
+        datetime.date.fromisoformat(defaults.get("tgl_bast", str(datetime.date.today()))))
 
     st.markdown("**Surat Tugas**")
-    nomor_surattugas = st.text_input("Nomor Surat Tugas", saved_settings.get("nomor_surattugas", ""))
+    nomor_surattugas = st.text_input("Nomor Surat Tugas", defaults.get("nomor_surattugas", ""))
     tgl_st = st.date_input("Tanggal Surat Tugas (ST)",
-        datetime.date.fromisoformat(saved_settings.get("tgl_st", str(datetime.date.today()))))
+        datetime.date.fromisoformat(defaults.get("tgl_st", str(datetime.date.today()))))
 
     st.markdown("**Format Satuan**")
-    tipe_satuan = st.text_input("Bentuk Dokumen", saved_settings.get("tipe_satuan", "hardcopy"))
-    satuan_vol = st.text_input("Satuan Volume", saved_settings.get("satuan_vol", "Dokumen"))
+    tipe_satuan = st.text_input("Bentuk Dokumen", defaults.get("tipe_satuan", "hardcopy"))
+    satuan_vol = st.text_input("Satuan Volume", defaults.get("satuan_vol", "Dokumen"))
 
     if st.form_submit_button("Simpan Pengaturan Default"):
         saved_settings.update({
