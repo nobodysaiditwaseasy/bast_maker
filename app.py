@@ -10,6 +10,7 @@ from core.context import build_context
 from core.render import render_docs
 from core.export_docx import export_zip, export_merged_docx
 from core.export_pdf import export_merged_pdf
+from core.perjadin import render_perjadin, PERJADIN_TEMPLATE
 
 SETTINGS_FILE = "saved_settings.json"
 DEFAULT_TEMPLATE = "template/BAST MASTER.docx"
@@ -139,134 +140,193 @@ settings = {
     "tipe_satuan": tipe_satuan, "satuan_vol": satuan_vol,
 }
 
-# --- Template & CSV upload ---
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("1. File Template Word")
-    tpl_file = st.file_uploader("Upload .docx (atau kosongkan untuk default)", type=["docx"])
-    if tpl_file is None and os.path.exists(DEFAULT_TEMPLATE):
-        st.info(f"Template default: `{DEFAULT_TEMPLATE}`")
-with col2:
-    st.subheader("2. File CSV Dinamis")
-    csv_file = st.file_uploader("Upload Data CSV", type=["csv"])
+# --- Tabs ---
+tab_bast, tab_perjadin = st.tabs(["📋 BAST Maker", "📄 Laporan Perjadin"])
 
-# --- Data editor (4 columns only) ---
-initial_df = pd.DataFrame([{
-    "nama_ppl": "Ahmad Fauzi", "nik_ppl": "3501012345670001",
-    "alamat_ppl": "Desa Arjowinangun Pacitan", "vol_kegiatan": "4"
-}])
+# =========================================================
+# TAB 1: BAST Maker
+# =========================================================
+with tab_bast:
+    # --- Template & CSV upload ---
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("1. File Template Word")
+        tpl_file = st.file_uploader("Upload .docx (atau kosongkan untuk default)", type=["docx"], key="bast_tpl")
+        if tpl_file is None and os.path.exists(DEFAULT_TEMPLATE):
+            st.info(f"Template default: `{DEFAULT_TEMPLATE}`")
+    with col2:
+        st.subheader("2. File CSV Dinamis")
+        csv_file = st.file_uploader("Upload Data CSV", type=["csv"], key="bast_csv")
 
-if "df_bast" not in st.session_state:
-    st.session_state["df_bast"] = initial_df
-if csv_file is not None:
-    st.session_state["df_bast"] = pd.read_csv(csv_file, dtype=str)
+    # --- Data editor (4 columns only) ---
+    initial_df = pd.DataFrame([{
+        "nama_ppl": "Ahmad Fauzi", "nik_ppl": "3501012345670001",
+        "alamat_ppl": "Desa Arjowinangun Pacitan", "vol_kegiatan": "4"
+    }])
 
-st.subheader("3. Editor Data Lapangan")
-st.caption("Ubah, tambah, atau hapus baris langsung pada tabel berikut.")
-edited_df = st.data_editor(
-    st.session_state["df_bast"], num_rows="dynamic",
-    use_container_width=True, key="bast_editor"
-)
-st.session_state["df_bast"] = edited_df
+    if "df_bast" not in st.session_state:
+        st.session_state["df_bast"] = initial_df
+    if csv_file is not None:
+        st.session_state["df_bast"] = pd.read_csv(csv_file, dtype=str)
 
-st.download_button(
-    label="Unduh CSV Hasil Koreksi",
-    data=edited_df.to_csv(index=False).encode("utf-8"),
-    file_name="bast_petugas_corrected.csv", mime="text/csv"
-)
-st.markdown("---")
+    st.subheader("3. Editor Data Lapangan")
+    st.caption("Ubah, tambah, atau hapus baris langsung pada tabel berikut.")
+    edited_df = st.data_editor(
+        st.session_state["df_bast"], num_rows="dynamic",
+        use_container_width=True, key="bast_editor"
+    )
+    st.session_state["df_bast"] = edited_df
 
-# --- Format selection ---
-st.subheader("4. Eksekusi Render")
-format_mode = st.radio(
-    "Format Dokumen",
-    ["individual", "collective"],
-    format_func=lambda x: {
-        "individual": "Format 2 — BAST Individual (1 set per petugas)",
-        "collective": "Format 1 — Dokumen Kolektif (N halaman muka + 1 lampiran rekap)",
-    }[x],
-    horizontal=True,
-    key="format_bast_choice",
-    on_change=lambda: st.session_state.pop("result", None),
-)
+    st.download_button(
+        label="Unduh CSV Hasil Koreksi",
+        data=edited_df.to_csv(index=False).encode("utf-8"),
+        file_name="bast_petugas_corrected.csv", mime="text/csv"
+    )
+    st.markdown("---")
 
-def context_fn(row):
-    ctx = build_context(row, settings, dates)
-    if format_mode == "collective":
-        ctx["total_vol_kegiatan"] = str(
-            edited_df["vol_kegiatan"].astype(int).sum()
-        ) if "vol_kegiatan" in edited_df.columns else "0"
-    return ctx
+    # --- Format selection ---
+    st.subheader("4. Eksekusi Render")
+    format_mode = st.radio(
+        "Format Dokumen",
+        ["individual", "collective"],
+        format_func=lambda x: {
+            "individual": "Format 2 — BAST Individual (1 set per petugas)",
+            "collective": "Format 1 — Dokumen Kolektif (N halaman muka + 1 lampiran rekap)",
+        }[x],
+        horizontal=True,
+        key="format_bast_choice",
+        on_change=lambda: st.session_state.pop("result", None),
+    )
 
-def validate():
-    if tpl_file is None and not os.path.exists(DEFAULT_TEMPLATE):
-        return "Silakan unggah template .docx atau pastikan template default ada."
-    if edited_df.empty:
-        return "Tabel data petugas tidak boleh kosong."
-    return None
+    def context_fn(row):
+        ctx = build_context(row, settings, dates)
+        if format_mode == "collective":
+            ctx["total_vol_kegiatan"] = str(
+                edited_df["vol_kegiatan"].astype(int).sum()
+            ) if "vol_kegiatan" in edited_df.columns else "0"
+        return ctx
 
-if st.button("Generate Dokumen", type="primary", use_container_width=True):
-    err = validate()
-    if err:
-        st.error(err)
-    else:
-        progress = st.progress(0, text="Memulai render...")
+    def validate():
+        if tpl_file is None and not os.path.exists(DEFAULT_TEMPLATE):
+            return "Silakan unggah template .docx atau pastikan template default ada."
+        if edited_df.empty:
+            return "Tabel data petugas tidak boleh kosong."
+        return None
 
-        progress.progress(10, text="Rendering dokumen dari template...")
-        docs = render_docs(tpl_file, DEFAULT_TEMPLATE, edited_df, context_fn, format_mode)
+    if st.button("Generate Dokumen", type="primary", use_container_width=True, key="btn_bast"):
+        err = validate()
+        if err:
+            st.error(err)
+        else:
+            progress = st.progress(0, text="Memulai render...")
 
-        progress.progress(40, text="Membuat ZIP Word satuan...")
-        zip_buf = export_zip(docs)
+            progress.progress(10, text="Rendering dokumen dari template...")
+            docs = render_docs(tpl_file, DEFAULT_TEMPLATE, edited_df, context_fn, format_mode)
 
-        progress.progress(60, text="Menggabungkan Word gabungan...")
-        merged_docx_buf = export_merged_docx(docs)
+            progress.progress(40, text="Membuat ZIP Word satuan...")
+            zip_buf = export_zip(docs)
 
-        progress.progress(80, text="Menggabungkan PDF gabungan...")
-        merged_pdf_buf = export_merged_pdf(docs)
+            progress.progress(60, text="Menggabungkan Word gabungan...")
+            merged_docx_buf = export_merged_docx(docs)
 
-        progress.progress(100, text="Selesai!")
-        slug = slugify(nama_kegiatan)
-        fmt_label = "Kolektif" if format_mode == "collective" else "Individual"
-        st.session_state["result"] = {
-            "count": len(docs),
-            "format": format_mode,
-            "slug": slug,
-            "fmt_label": fmt_label,
-            "zip": zip_buf,
-            "merged_docx": merged_docx_buf,
-            "merged_pdf": merged_pdf_buf,
-        }
+            progress.progress(80, text="Menggabungkan PDF gabungan...")
+            merged_pdf_buf = export_merged_pdf(docs)
 
-if "result" in st.session_state:
-    r = st.session_state["result"]
-    is_collective = r["format"] == "collective"
-    slug = r["slug"]
-    fmt = r["fmt_label"]
-    st.success(f"Berhasil menghasilkan {r['count']} dokumen BAST.")
+            progress.progress(100, text="Selesai!")
+            slug = slugify(nama_kegiatan)
+            fmt_label = "Kolektif" if format_mode == "collective" else "Individual"
+            st.session_state["result"] = {
+                "count": len(docs), "format": format_mode,
+                "slug": slug, "fmt_label": fmt_label,
+                "zip": zip_buf, "merged_docx": merged_docx_buf, "merged_pdf": merged_pdf_buf,
+            }
 
-    c1, c2, c3 = st.columns(3)
+    if "result" in st.session_state:
+        r = st.session_state["result"]
+        is_collective = r["format"] == "collective"
+        slug = r["slug"]
+        fmt = r["fmt_label"]
+        st.success(f"Berhasil menghasilkan {r['count']} dokumen BAST.")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.download_button(
+                label="ZIP Word Satuan" if not is_collective else "ZIP Word Kolektif",
+                data=r["zip"], file_name=f"BAST_{slug}_{fmt}.zip",
+                mime="application/zip", use_container_width=True, key="dl_zip",
+            )
+        with c2:
+            st.download_button(
+                label="Word Gabungan", data=r["merged_docx"],
+                file_name=f"BAST_{slug}_{fmt}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True, key="dl_docx",
+            )
+        with c3:
+            st.download_button(
+                label="PDF Gabungan", data=r["merged_pdf"],
+                file_name=f"BAST_{slug}_{fmt}.pdf",
+                mime="application/pdf", use_container_width=True, key="dl_pdf",
+            )
 
-    with c1:
-        st.download_button(
-            label="ZIP Word Satuan" if not is_collective else "ZIP Word Kolektif",
-            data=r["zip"],
-            file_name=f"BAST_{slug}_{fmt}.zip",
-            mime="application/zip",
-            use_container_width=True,
-        )
-    with c2:
-        st.download_button(
-            label="Word Gabungan",
-            data=r["merged_docx"],
-            file_name=f"BAST_{slug}_{fmt}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-        )
-    with c3:
-        st.download_button(
-            label="PDF Gabungan",
-            data=r["merged_pdf"],
-            file_name=f"BAST_{slug}_{fmt}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
+# =========================================================
+# TAB 2: Laporan Perjadin
+# =========================================================
+with tab_perjadin:
+    st.subheader("Formulir Laporan Perjalanan Dinas")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        nama_pelapor = st.text_input("Nama Pelapor", key="pj_nama")
+        NIP_NIK = st.text_input("NIP / NIK", key="pj_nip")
+        pangkat = st.text_input("Pangkat / Golongan", key="pj_pangkat")
+    with col2:
+        jabatan_kegiatan = st.text_input("Jabatan (di Kegiatan)", key="pj_jab_keg")
+        jabatan = st.text_input("Jabatan", key="pj_jab")
+        tanggal_OH = st.date_input("Tanggal Perjalanan", key="pj_tgl_oh")
+        tanggal_ttd = st.date_input("Tanggal Tanda Tangan", key="pj_tgl_ttd")
+
+    from core.text_engine import extract_date_terbilang as edt
+    _, _, _, _, tanggal_OH_str = edt(tanggal_OH)
+    _, _, _, _, tanggal_ttd_str = edt(tanggal_ttd)
+
+    st.markdown("---")
+    st.subheader("Dokumentasi Foto")
+    st.caption("Upload foto kegiatan. Foto akan tersusun otomatis dalam grid A4 (2 kolom) di halaman Dokumentasi.")
+    photos = st.file_uploader(
+        "Upload Foto", type=["jpg", "jpeg", "png", "bmp", "webp"],
+        accept_multiple_files=True, key="pj_photos"
+    )
+
+    if photos:
+        cols = st.columns(min(len(photos), 4))
+        for i, p in enumerate(photos):
+            with cols[i % len(cols)]:
+                st.image(p, caption=p.name, use_container_width=True)
+        st.caption(f"{len(photos)} foto siap digunakan.")
+
+    if st.button("Generate Laporan Perjadin", type="primary", use_container_width=True, key="btn_perjadin"):
+        if not nama_pelapor:
+            st.error("Nama pelapor wajib diisi.")
+        else:
+            context = {
+                "nama_kegiatan": nama_kegiatan,
+                "nama_pelapor": nama_pelapor,
+                "NIP_NIK": NIP_NIK,
+                "pangkat": pangkat,
+                "jabatan_kegiatan": jabatan_kegiatan,
+                "jabatan": jabatan,
+                "tanggal_OH": tanggal_OH_str,
+                "tanggal_ttd": tanggal_ttd_str,
+            }
+            photo_bytes = [p.getvalue() for p in photos] if photos else []
+            docx_bytes = render_perjadin(context, photo_bytes)
+
+            slug = slugify(nama_kegiatan)
+            st.success("Laporan Perjadin berhasil digenerate!")
+            st.download_button(
+                label="Unduh Laporan Perjadin (.docx)",
+                data=docx_bytes,
+                file_name=f"Perjadin_{slug}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary", use_container_width=True, key="dl_perjadin",
+            )
