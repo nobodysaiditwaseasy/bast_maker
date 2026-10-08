@@ -14,3 +14,5 @@ test-generate_bast_dari_csv.py
 BAST MASTERold.docx
 test_upper.docx
 csv/
+_insp*.py
+~$*
