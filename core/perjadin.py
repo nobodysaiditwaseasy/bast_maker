@@ -2,6 +2,7 @@
 import io
 
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, Emu
 from docxtpl import DocxTemplate
@@ -27,25 +28,18 @@ def add_page_break(doc):
 
 
 def build_photo_grid(doc, photo_bytes_list, cols=2):
-    """Add a 'DOKUMENTASI' page with an A4 photo grid.
-
-    Args:
-        doc: python-docx Document to append to
-        photo_bytes_list: list of raw image bytes
-        cols: number of columns in the grid (2 or 3)
-    """
-    # Page break
+    """Add a 'DOKUMENTASI' page with an A4 photo grid."""
     add_page_break(doc)
 
-    # Title
+    # Compact title
     title = doc.add_paragraph()
-    title.alignment = 1  # center
+    title.alignment = 1
+    title.paragraph_format.space_before = Pt(0)
+    title.paragraph_format.space_after = Pt(6)
     run = title.add_run("DOKUMENTASI")
     run.bold = True
-    run.font.size = Pt(16)
+    run.font.size = Pt(14)
     run.font.name = "Arial"
-
-    doc.add_paragraph()  # spacing
 
     if not photo_bytes_list:
         return
@@ -53,29 +47,25 @@ def build_photo_grid(doc, photo_bytes_list, cols=2):
     photos = photo_bytes_list
     rows = (len(photos) + cols - 1) // cols
 
-    # Reserve space for title (~1.5cm) + spacing paragraph (~1cm)
-    TITLE_RESERVE_CM = 2.5
-    grid_max_h = USABLE_H - TITLE_RESERVE_CM
+    # Available height: A4 usable minus title (~1cm) minus a safety margin (~0.5cm)
+    TITLE_AND_MARGIN_CM = 1.5
+    grid_max_h = USABLE_H - TITLE_AND_MARGIN_CM
 
-    # Cell dimensions
     cell_w_cm = USABLE_W / cols
     cell_h_cm = grid_max_h / rows
 
-    # Inner padding inside each cell
-    pad_cm = 0.15
+    pad_cm = 0.1
     img_max_w = cell_w_cm - 2 * pad_cm
     img_max_h = cell_h_cm - 2 * pad_cm
 
     table = doc.add_table(rows=rows, cols=cols)
     table.style = "Table Grid"
 
-    # Set row height exactly (AT_LEAST would grow beyond)
-    from docx.oxml import OxmlElement
+    # Lock row heights in TWIPS (1 cm = 567 twips), rule = exact
     for row in table.rows:
-        tr = row._tr
-        trPr = tr.get_or_add_trPr()
+        trPr = row._tr.get_or_add_trPr()
         trHeight = OxmlElement("w:trHeight")
-        trHeight.set(qn("w:val"), str(int(Cm(cell_h_cm))))
+        trHeight.set(qn("w:val"), str(int(cell_h_cm * 567)))
         trHeight.set(qn("w:hRule"), "exact")
         trPr.append(trHeight)
 
@@ -90,18 +80,17 @@ def build_photo_grid(doc, photo_bytes_list, cols=2):
             from PIL import Image
             img = Image.open(io.BytesIO(photo_data))
             w, h = img.size
-            # Scale to fit within cell
-            ratio_w = img_max_w / (w / 914400 * 2.54)
-            ratio_h = img_max_h / (h / 914400 * 2.54)
-            ratio = min(ratio_w, ratio_h)
-            new_w_emu = Emu(int(w * ratio))
-            new_h_emu = Emu(int(h * ratio))
+            # EMU-based ratio
+            px_to_cm = 2.54 / 96.0  # standard DPI assumption
+            ratio = min(img_max_w / (w * px_to_cm), img_max_h / (h * px_to_cm))
+            new_w_emu = Emu(int(w * 914400 * px_to_cm * ratio))
+            new_h_emu = Emu(int(h * 914400 * px_to_cm * ratio))
 
             para = cell.paragraphs[0]
             para.alignment = 1
-            # Reduce spacing in cell paragraph
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
+            para.paragraph_format.line_spacing = 1.0
             run = para.add_run()
             run.add_picture(io.BytesIO(photo_data), width=new_w_emu, height=new_h_emu)
         except Exception:
