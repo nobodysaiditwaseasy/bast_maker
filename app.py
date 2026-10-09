@@ -290,6 +290,15 @@ with tab_perjadin:
     _, _, _, _, tanggal_ttd_str = edt(tanggal_ttd)
 
     st.markdown("---")
+    st.subheader("Catatan Lapangan")
+    col1, col2 = st.columns(2)
+    with col1:
+        catatan_hasil = st.text_area("Catatan Hasil Pendataan", key="pj_catatan", height=120)
+        kendala = st.text_area("Kendala", key="pj_kendala", height=120)
+    with col2:
+        solusi = st.text_area("Solusi", key="pj_solusi", height=120)
+
+    st.markdown("---")
     st.subheader("Dokumentasi Foto")
     st.caption("Upload foto kegiatan. Foto akan tersusun otomatis dalam grid A4 (2 kolom) di halaman Dokumentasi.")
     photos = st.file_uploader(
@@ -317,6 +326,9 @@ with tab_perjadin:
                 "jabatan": jabatan,
                 "tanggal_OH": tanggal_OH_str,
                 "tanggal_ttd": tanggal_ttd_str,
+                "catatan_hasil": catatan_hasil,
+                "kendala": kendala,
+                "solusi": solusi,
             }
             photo_bytes = [p.getvalue() for p in photos] if photos else []
             docx_bytes = render_perjadin(context, photo_bytes)

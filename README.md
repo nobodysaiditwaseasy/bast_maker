@@ -14,7 +14,8 @@ Generator dokumen BAST (Berita Acara Serah Terima) untuk kegiatan survei/sensus 
 
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+cd E:\Projects\bast_maker
+    python -m streamlit run app.py
 ```
 
 ## CSV Format
