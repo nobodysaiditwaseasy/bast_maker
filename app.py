@@ -350,7 +350,7 @@ else:
             st.error("Nama pelapor wajib diisi.")
         else:
             context = {
-                "nama_kegiatan": nama_kegiatan_pj,
+                "nama_kegiatan": nama_kegiatan_pj.upper(),
                 "nama_pelapor": nama_pelapor,
                 "NIP_NIK": NIP_NIK, "pangkat": pangkat,
                 "jabatan_kegiatan": jabatan_kegiatan, "jabatan": jabatan,

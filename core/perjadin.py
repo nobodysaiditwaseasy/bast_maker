@@ -34,8 +34,6 @@ def build_photo_grid(doc, photo_bytes_list, cols=2):
         photo_bytes_list: list of raw image bytes
         cols: number of columns in the grid (2 or 3)
     """
-    from docx.oxml import OxmlElement
-
     # Page break
     add_page_break(doc)
 
@@ -55,41 +53,55 @@ def build_photo_grid(doc, photo_bytes_list, cols=2):
     photos = photo_bytes_list
     rows = (len(photos) + cols - 1) // cols
 
+    # Reserve space for title (~1.5cm) + spacing paragraph (~1cm)
+    TITLE_RESERVE_CM = 2.5
+    grid_max_h = USABLE_H - TITLE_RESERVE_CM
+
     # Cell dimensions
     cell_w_cm = USABLE_W / cols
-    cell_h_cm = USABLE_H / rows
+    cell_h_cm = grid_max_h / rows
 
-    # Inner padding inside each cell (so images don't touch)
-    pad_cm = 0.2
+    # Inner padding inside each cell
+    pad_cm = 0.15
     img_max_w = cell_w_cm - 2 * pad_cm
     img_max_h = cell_h_cm - 2 * pad_cm
 
     table = doc.add_table(rows=rows, cols=cols)
     table.style = "Table Grid"
 
+    # Set row height exactly (AT_LEAST would grow beyond)
+    from docx.oxml import OxmlElement
+    for row in table.rows:
+        tr = row._tr
+        trPr = tr.get_or_add_trPr()
+        trHeight = OxmlElement("w:trHeight")
+        trHeight.set(qn("w:val"), str(int(Cm(cell_h_cm))))
+        trHeight.set(qn("w:hRule"), "exact")
+        trPr.append(trHeight)
+
     for idx, photo_data in enumerate(photos):
         row_idx = idx // cols
         col_idx = idx % cols
         cell = table.cell(row_idx, col_idx)
-
-        # Set cell dimensions
         cell.width = Cm(cell_w_cm)
-        row = table.rows[row_idx]
-        row.height = Cm(cell_h_cm)
-
-        # Remove default empty paragraph text
         cell.paragraphs[0].clear()
 
         try:
             from PIL import Image
             img = Image.open(io.BytesIO(photo_data))
             w, h = img.size
-            ratio = min(img_max_w / (w / 914400 * 2.54), img_max_h / (h / 914400 * 2.54))
+            # Scale to fit within cell
+            ratio_w = img_max_w / (w / 914400 * 2.54)
+            ratio_h = img_max_h / (h / 914400 * 2.54)
+            ratio = min(ratio_w, ratio_h)
             new_w_emu = Emu(int(w * ratio))
             new_h_emu = Emu(int(h * ratio))
 
             para = cell.paragraphs[0]
-            para.alignment = 1  # center
+            para.alignment = 1
+            # Reduce spacing in cell paragraph
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
             run = para.add_run()
             run.add_picture(io.BytesIO(photo_data), width=new_w_emu, height=new_h_emu)
         except Exception:
