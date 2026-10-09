@@ -261,12 +261,15 @@ else:
                 st.error("Berkas JSON tidak valid.")
 
         pj_export = {
-            "nama_kegiatan": st.session_state.get("pj_form", {}).get("nama_kegiatan", ""),
+            "nama_kegiatan": pj_defaults.get("nama_kegiatan", ""),
             "nama_pelapor": st.session_state.get("pj_form", {}).get("nama_pelapor", ""),
             "NIP_NIK": st.session_state.get("pj_form", {}).get("NIP_NIK", ""),
             "pangkat": st.session_state.get("pj_form", {}).get("pangkat", ""),
             "jabatan_kegiatan": st.session_state.get("pj_form", {}).get("jabatan_kegiatan", ""),
             "jabatan": st.session_state.get("pj_form", {}).get("jabatan", ""),
+            "catatan_hasil": st.session_state.get("pj_form", {}).get("catatan_hasil", ""),
+            "kendala": st.session_state.get("pj_form", {}).get("kendala", ""),
+            "solusi": st.session_state.get("pj_form", {}).get("solusi", ""),
         }
         st.download_button(
             label="📥 Unduh Preset Perjadin",
@@ -279,21 +282,20 @@ else:
     if "pj_loaded_preset" in st.session_state:
         pj_defaults.update(st.session_state.pop("pj_loaded_preset"))
 
-    # --- Sidebar: Save Defaults ---
-    with st.sidebar.form("pj_save_defaults"):
-        pj_default_nama = st.text_input("Nama Pelapor Default", pj_defaults.get("nama_pelapor", ""))
-        pj_default_nip = st.text_input("NIP/NIK Default", pj_defaults.get("NIP_NIK", ""))
-        pj_default_pangkat = st.text_input("Pangkat Default", pj_defaults.get("pangkat", ""))
-        pj_default_jab_keg = st.text_input("Jabatan Kegiatan Default", pj_defaults.get("jabatan_kegiatan", ""))
-        pj_default_jab = st.text_input("Jabatan Default", pj_defaults.get("jabatan", ""))
-        if st.form_submit_button("Simpan Default Perjadin"):
-            pj_defaults.update({
-                "nama_pelapor": pj_default_nama, "NIP_NIK": pj_default_nip,
-                "pangkat": pj_default_pangkat, "jabatan_kegiatan": pj_default_jab_keg,
-                "jabatan": pj_default_jab,
-            })
-            save_json(PERJADIN_SETTINGS_FILE, pj_defaults)
-            st.success("Default Perjadin tersimpan!")
+    # --- Sidebar: Save current form as default ---
+    if st.sidebar.button("💾 Simpan Form sebagai Default", use_container_width=True, key="pj_save_default"):
+        pj_defaults.update({
+            "nama_pelapor": st.session_state.get("pj_form", {}).get("nama_pelapor", ""),
+            "NIP_NIK": st.session_state.get("pj_form", {}).get("NIP_NIK", ""),
+            "pangkat": st.session_state.get("pj_form", {}).get("pangkat", ""),
+            "jabatan_kegiatan": st.session_state.get("pj_form", {}).get("jabatan_kegiatan", ""),
+            "jabatan": st.session_state.get("pj_form", {}).get("jabatan", ""),
+            "catatan_hasil": st.session_state.get("pj_form", {}).get("catatan_hasil", ""),
+            "kendala": st.session_state.get("pj_form", {}).get("kendala", ""),
+            "solusi": st.session_state.get("pj_form", {}).get("solusi", ""),
+        })
+        save_json(PERJADIN_SETTINGS_FILE, pj_defaults)
+        st.sidebar.success("Default tersimpan!")
 
     # --- Main: Form ---
     col1, col2 = st.columns(2)
@@ -323,7 +325,7 @@ else:
     st.subheader("Dokumentasi Foto")
     st.caption("Upload foto kegiatan. Foto akan tersusun otomatis dalam grid A4 (2 kolom) di halaman Dokumentasi.")
     photos = st.file_uploader(
-        "Upload Foto", type=["jpg", "jpeg", "png", "bmp", "webp"],
+        "Upload Foto", type=["jpg", "jpeg", "jfif", "png", "bmp", "webp"],
         accept_multiple_files=True, key="pj_photos"
     )
 
@@ -336,9 +338,10 @@ else:
 
     # --- Store form values for preset export ---
     st.session_state["pj_form"] = {
-        "nama_kegiatan": nama_kegiatan if page == "BAST Generator" else pj_defaults.get("nama_kegiatan", ""),
+        "nama_kegiatan": pj_defaults.get("nama_kegiatan", ""),
         "nama_pelapor": nama_pelapor, "NIP_NIK": NIP_NIK, "pangkat": pangkat,
         "jabatan_kegiatan": jabatan_kegiatan, "jabatan": jabatan,
+        "catatan_hasil": catatan_hasil, "kendala": kendala, "solusi": solusi,
     }
 
     if st.button("Generate Laporan Perjadin", type="primary", use_container_width=True, key="btn_perjadin"):
