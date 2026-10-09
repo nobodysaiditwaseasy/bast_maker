@@ -298,6 +298,7 @@ else:
         st.sidebar.success("Default tersimpan!")
 
     # --- Main: Form ---
+    nama_kegiatan_pj = st.text_input("Nama Kegiatan", pj_defaults.get("nama_kegiatan", ""), key="pj_nama_kegiatan")
     col1, col2 = st.columns(2)
     with col1:
         nama_pelapor = st.text_input("Nama Pelapor", pj_defaults.get("nama_pelapor", ""), key="pj_nama")
@@ -338,7 +339,7 @@ else:
 
     # --- Store form values for preset export ---
     st.session_state["pj_form"] = {
-        "nama_kegiatan": pj_defaults.get("nama_kegiatan", ""),
+        "nama_kegiatan": nama_kegiatan_pj,
         "nama_pelapor": nama_pelapor, "NIP_NIK": NIP_NIK, "pangkat": pangkat,
         "jabatan_kegiatan": jabatan_kegiatan, "jabatan": jabatan,
         "catatan_hasil": catatan_hasil, "kendala": kendala, "solusi": solusi,
@@ -349,7 +350,7 @@ else:
             st.error("Nama pelapor wajib diisi.")
         else:
             context = {
-                "nama_kegiatan": pj_defaults.get("nama_kegiatan", ""),
+                "nama_kegiatan": nama_kegiatan_pj,
                 "nama_pelapor": nama_pelapor,
                 "NIP_NIK": NIP_NIK, "pangkat": pangkat,
                 "jabatan_kegiatan": jabatan_kegiatan, "jabatan": jabatan,
