@@ -80,11 +80,10 @@ def build_photo_grid(doc, photo_bytes_list, cols=2):
             from PIL import Image
             img = Image.open(io.BytesIO(photo_data))
             w, h = img.size
-            # EMU-based ratio
-            px_to_cm = 2.54 / 96.0  # standard DPI assumption
-            ratio = min(img_max_w / (w * px_to_cm), img_max_h / (h * px_to_cm))
-            new_w_emu = Emu(int(w * 914400 * px_to_cm * ratio))
-            new_h_emu = Emu(int(h * 914400 * px_to_cm * ratio))
+            # Old working logic: fit image to cell
+            ratio = min(img_max_w / (w / 914400 * 2.54), img_max_h / (h / 914400 * 2.54))
+            new_w_emu = Emu(int(w * ratio))
+            new_h_emu = Emu(int(h * ratio))
 
             para = cell.paragraphs[0]
             para.alignment = 1
